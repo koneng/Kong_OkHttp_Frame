@@ -1,7 +1,7 @@
 package www.kong.com.okhttp.frame;
 
-class WrapData<T> {
-    int code;
-    String message;
-    T data;
+public class WrapData<T> {
+    public int code;
+    public String message;
+    public T data;
 }

@@ -1,4 +1,4 @@
-package www.kong.com.okhttp.frame;
+package www.kong.com.okhttp.frame.post;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -12,8 +12,13 @@ import okhttp3.Headers;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
+import www.kong.com.okhttp.frame.HttpConfig;
+import www.kong.com.okhttp.frame.WrapData;
+import www.kong.com.okhttp.frame.interfaces.Call;
+import www.kong.com.okhttp.frame.interfaces.IBuilder;
+import www.kong.com.okhttp.frame.interfaces.IHttp;
 
-public class HttpGet<T> implements IHttp<T>{
+public class HttpGet<T> implements IHttp<T> {
 
     private OkHttpClient mOkHttpClient;
     private Map<String, String> mHeadMap;
@@ -80,7 +85,7 @@ public class HttpGet<T> implements IHttp<T>{
         newCall(request, call);
     }
 
-    public class Builder {
+    public static class Builder implements IBuilder {
 
         private Map<String, String> mHeadMap;
         private OkHttpClient mClient;

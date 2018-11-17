@@ -1,10 +1,12 @@
-package www.kong.com.okhttp.frame;
+package www.kong.com.okhttp.frame.post;
+
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Type;
 import java.util.Map;
 
 import okhttp3.Callback;
@@ -16,69 +18,65 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
-
+import www.kong.com.okhttp.frame.HttpConfig;
+import www.kong.com.okhttp.frame.WrapData;
+import www.kong.com.okhttp.frame.interfaces.Call;
+import www.kong.com.okhttp.frame.interfaces.IBuilder;
+import www.kong.com.okhttp.frame.interfaces.IHttp;
 import static okhttp3.MultipartBody.FORM;
 
-public class HttpPost<T, K> implements IHttp<T> {
+public class HttpPost<T> implements IHttp<T> {
 
-    enum Type {
+    enum BuilderType {
         DEFAULT, FORM, MULTIPART
     }
 
     private OkHttpClient mOkHttpClient;
     private Map<String, String> mHeadMap;
     private String mUrl;
-    private K mK;
-    private Type mType = Type.DEFAULT;
+    private BuilderType mType = BuilderType.DEFAULT;
     private Map<String, Object> mParams;
     private Map<String, Object> mPartHeaders;
+    private Object mObjectParams;
 
-    private HttpPost(Builder builder) {
-        if (builder.mClient != null) {
-            mOkHttpClient = builder.mClient;
-        } else {
-            mOkHttpClient = HttpConfig.get().getOkHttpClient();
+    private HttpPost(IBuilder build) {
+        if(build instanceof Builder) {
+            Builder builder = (Builder) build;
+            mType = BuilderType.DEFAULT;
+            if (builder.mClient != null) {
+                mOkHttpClient = builder.mClient;
+            }
+            mHeadMap = builder.mHeadMap;
+            mUrl = builder.mUrl;
+            mObjectParams = builder.mObjectParams;
+        } else if (build instanceof FromBuilder) {
+            FromBuilder builder = (FromBuilder) build;
+            mType = BuilderType.FORM;
+            if (builder.mClient != null) {
+                mOkHttpClient = builder.mClient;
+                mHeadMap = builder.mHeadMap;
+                mUrl = builder.mUrl;
+                mParams = builder.mParams;
+            }
+        } else if (build instanceof MultipartBuilder){
+            MultipartBuilder builder = (MultipartBuilder) build;
+            mType = BuilderType.MULTIPART;
+            if (builder.mClient != null) {
+                mOkHttpClient = builder.mClient;
+                mHeadMap = builder.mHeadMap;
+                mUrl = builder.mUrl;
+                mParams = builder.mParams;
+                mPartHeaders = builder.mPartHeaders;
+            }
         }
         if (mOkHttpClient == null) {
-            throw new NullPointerException("ok http client is null !");
-        }
-        mHeadMap = builder.mHeadMap;
-        mUrl = builder.mUrl;
-        mK = builder.mK;
-    }
-
-    private HttpPost(FromBuilder builder) {
-        if (builder.mClient != null) {
-            mOkHttpClient = builder.mClient;
-        } else {
             mOkHttpClient = HttpConfig.get().getOkHttpClient();
         }
-        if (mOkHttpClient == null) {
-            throw new NullPointerException("ok http client is null !");
-        }
-        mHeadMap = builder.mHeadMap;
-        mUrl = builder.mUrl;
-        mParams = builder.mParams;
-    }
-
-    private HttpPost(MultipartBuilder builder) {
-        if (builder.mClient != null) {
-            mOkHttpClient = builder.mClient;
-        } else {
-            mOkHttpClient = HttpConfig.get().getOkHttpClient();
-        }
-        if (mOkHttpClient == null) {
-            throw new NullPointerException("ok http client is null !");
-        }
-        mHeadMap = builder.mHeadMap;
-        mUrl = builder.mUrl;
-        mParams = builder.mParams;
-        mPartHeaders = builder.mPartHeaders;
     }
 
     public Request request() {
         RequestBody requestBody;
-        if (mType == Type.FORM) {
+        if (mType == BuilderType.FORM) {
             FormBody.Builder builder = new FormBody.Builder();
             if (mParams != null) {
                 for (Map.Entry<String, Object> entry : mParams.entrySet()) {
@@ -89,7 +87,7 @@ public class HttpPost<T, K> implements IHttp<T> {
                 }
             }
             requestBody = builder.build();
-        } else if (mType == Type.MULTIPART) {
+        } else if (mType == BuilderType.MULTIPART) {
             MultipartBody.Builder builder = new MultipartBody.Builder();
             if (mPartHeaders != null) {
                 builder.setType(FORM);
@@ -126,7 +124,7 @@ public class HttpPost<T, K> implements IHttp<T> {
             }
             requestBody = builder.build();
         } else {
-            String json = new Gson().toJson(mK);
+            String json = new Gson().toJson(mObjectParams);
             requestBody = RequestBody.create(MediaType.parse("application/json"), json);
         }
 
@@ -149,7 +147,7 @@ public class HttpPost<T, K> implements IHttp<T> {
             @Override
             public void onResponse(okhttp3.Call call, Response response) {
                 String json = response.message();
-                java.lang.reflect.Type type = new TypeToken<WrapData<T>>(){}.getType();
+                Type type = new TypeToken<WrapData<T>>(){}.getType();
                 WrapData<T> wrapData = new Gson().fromJson(json, type);
                 if (response.isSuccessful()) {
                     T t = wrapData.data;
@@ -176,15 +174,14 @@ public class HttpPost<T, K> implements IHttp<T> {
         newCall(request, call);
     }
 
-    public class Builder {
+    public static class Builder implements IBuilder{
 
         private Map<String, String> mHeadMap;
         private OkHttpClient mClient;
         private String mUrl;
-        private K mK;
+        private Object mObjectParams;
 
         public Builder() {
-            mType = Type.DEFAULT;
         }
 
         public Builder okHttpClient(OkHttpClient client) {
@@ -202,8 +199,8 @@ public class HttpPost<T, K> implements IHttp<T> {
             return this;
         }
 
-        public Builder params(K k) {
-            mK = k;
+        public Builder params(Object objectParams) {
+            mObjectParams = objectParams;
             return this;
         }
 
@@ -212,8 +209,7 @@ public class HttpPost<T, K> implements IHttp<T> {
         }
     }
 
-
-    public class FromBuilder {
+    public static class FromBuilder implements  IBuilder{
 
         private Map<String, String> mHeadMap;
         private OkHttpClient mClient;
@@ -221,7 +217,6 @@ public class HttpPost<T, K> implements IHttp<T> {
         private Map<String, Object> mParams;
 
         public FromBuilder() {
-            mType = Type.FORM;
         }
 
         public FromBuilder okHttpClient(OkHttpClient client) {
@@ -250,7 +245,7 @@ public class HttpPost<T, K> implements IHttp<T> {
     }
 
 
-    public class MultipartBuilder {
+    public static class MultipartBuilder implements IBuilder{
 
         private Map<String, String> mHeadMap;
         private OkHttpClient mClient;
@@ -259,7 +254,6 @@ public class HttpPost<T, K> implements IHttp<T> {
         private Map<String, Object> mPartHeaders;
 
         public MultipartBuilder() {
-            mType = Type.MULTIPART;
         }
 
         public MultipartBuilder okHttpClient(OkHttpClient client) {
@@ -282,7 +276,7 @@ public class HttpPost<T, K> implements IHttp<T> {
             return this;
         }
 
-        public MultipartBuilder postHeaders(Map<String, Object> partHeaders) {
+        public MultipartBuilder partHeaders(Map<String, Object> partHeaders) {
             mPartHeaders = partHeaders;
             return this;
         }

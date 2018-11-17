@@ -1,4 +1,4 @@
-package www.kong.com.okhttp.frame;
+package www.kong.com.okhttp.frame.interfaces;
 
 public interface Call<T> {
 

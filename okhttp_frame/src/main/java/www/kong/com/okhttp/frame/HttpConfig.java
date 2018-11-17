@@ -26,7 +26,7 @@ public class HttpConfig {
         mOkHttpClient = okHttpClient;
     }
 
-    OkHttpClient getOkHttpClient() {
+    public OkHttpClient getOkHttpClient() {
         return mOkHttpClient;
     }
 }
